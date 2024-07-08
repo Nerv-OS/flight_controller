@@ -18,6 +18,12 @@
 
 #include "../include/coords.h"
 
+constexpr int32_t check_is_flying_distance = 20;
+constexpr int32_t check_altitude_is_correct_distance = 50;
+constexpr int32_t check_servo_is_nearby_distance = 200;
+constexpr int32_t max_speed = 400;
+constexpr int32_t check_no_deviation_from_cource_distance = 500;
+constexpr int32_t current_command_update_distance = 100;
 
 class Security
 {
@@ -36,7 +42,8 @@ public:
     
 
 
-    Security(const std::vector<MissionCommand>& other_commands,const double t_): commands{other_commands}, home_alt{other_commands[0].content.waypoint.altitude}, t{t_}
+    Security(const std::vector<MissionCommand>& other_commands,const double t_): commands{other_commands},
+     home_alt{other_commands[0].content.waypoint.altitude}, t{t_}
     {
         for(uint i=0; i<other_commands.size(); i++)
         {

@@ -93,6 +93,9 @@ int main(void) {
         sleep(RETRY_REQUEST_DELAY_SEC);
     }
 
+	
+    setKillSwitch(1);
+
     //The drone is ready to arm
     fprintf(stderr, "[%s] Info: Ready to arm\n", ENTITY_NAME);
     while (true) {
@@ -132,7 +135,7 @@ int main(void) {
     //The flight is need to be controlled from now on
     //Also we need to check on ORVD, whether the flight is still allowed or it is need to be paused
 
-
+	
     double t = 0.1;
     Security sec = Security{get_commands(),t};
     while(!sec.check_is_flying())
@@ -146,6 +149,6 @@ int main(void) {
 
         sec.tick();
     }
-
+    
     return EXIT_SUCCESS;
 }

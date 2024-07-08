@@ -5,7 +5,7 @@ bool Security::check_is_flying()
     int32_t lat, lon, alt;
     getCoords(lat,lon,alt);
 
-    if (abs(alt-home_alt-commands[1].content.takeoff.altitude)<50)
+    if (abs(alt-home_alt-commands[1].content.takeoff.altitude)<check_is_flying_distance)
     {
         return true;
     }
@@ -27,7 +27,7 @@ void Security::tick()
     if(!check_altitude_is_correct(drone_possition,current_command))
     {
         changeAltitude(commands[current_command].content.waypoint.altitude);
-        sleep(1);
+        //sleep(1);
     }
 
     if(check_set_servo_is_nearby(drone_possition))
@@ -50,7 +50,7 @@ void Security::tick()
     }
 
     if(!check_speed_is_correct(drone_possition))
-        changeSpeed(2);
+        changeSpeed(max_speed);
     
 
     if(!check_no_deviation_from_cource(drone_possition))
@@ -59,7 +59,7 @@ void Security::tick()
         int32_t current_waypoint_lon=commands[current_command].content.waypoint.longitude;
         int32_t current_waypoint_alt=commands[current_command].content.waypoint.altitude;
         changeWaypoint(current_waypoint_lat, current_waypoint_lon, current_waypoint_alt);
-        sleep(1);
+        //sleep(1);
     }
 
     update_current_command(drone_possition);
@@ -84,17 +84,17 @@ bool Security::check_altitude_is_correct(const CommandWaypoint& drone_possition,
     }
 
 
-    return abs(drone_possition.altitude-home_alt-command_altitude)<50;
+    return abs(drone_possition.altitude-home_alt-command_altitude)<check_altitude_is_correct_distance;
 }
 
 bool Security::check_set_servo_is_nearby(const CommandWaypoint& drone_possition)
 {
-    if(number_set_servo_waypoint==0)
+    if(number_set_servo_waypoint == 0)
         return false;
 
     CommandWaypoint command = commands[number_set_servo_waypoint].content.waypoint;
     command.altitude=drone_possition.altitude;//Нужно, чтобы не учитывать разницу высот
-    if(distance(command,drone_possition)<200)
+    if(distance(command,drone_possition)<check_servo_is_nearby_distance)
         return true;
     return false;
 }
@@ -110,8 +110,10 @@ bool Security::check_set_servo_is_nearby(const CommandWaypoint& drone_possition)
     }
     else
     {
-        //fprintf(stderr, "current_speed = %f\n", abs(current_pos-prev_prev_pos)*0.5/t);
-        if(abs(current_pos-prev_prev_pos)*0.5/t>350)
+        fprintf(stderr, "current_speed1 = %f\n", abs(current_pos-prev_prev_pos)*0.5/t);
+        fprintf(stderr, "current_speed2 = %f\n", abs(3*current_pos-4*prev_pos+prev_prev_pos)*0.5/t);
+        
+        if(abs(current_pos-prev_prev_pos)*0.5/t>max_speed)
         {
             prev_prev_pos=Vector3D();
             prev_pos=Vector3D();
@@ -148,7 +150,7 @@ bool Security::check_no_deviation_from_cource(const CommandWaypoint& drone_possi
 
 
     //fprintf(stderr, "deviation = %f\n", distance(drone_possition,Line(current_waypoint,prev_waypoint)));
-    return distance(drone_possition,Line(current_waypoint,prev_waypoint)) < 500;
+    return distance(drone_possition,Line(current_waypoint,prev_waypoint)) < check_no_deviation_from_cource_distance;
 }
 
 void Security::update_current_command(const CommandWaypoint& drone_possition)
@@ -169,7 +171,7 @@ void Security::update_current_command(const CommandWaypoint& drone_possition)
         
         command.altitude=drone_possition.altitude;//Нужно, чтобы не учитывать разницу высот
 
-        if(distance(drone_possition,command)<100)
+        if(distance(drone_possition,command)< current_command_update_distance)
                 current_command+=step;
     }
 }
