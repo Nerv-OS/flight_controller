@@ -21,9 +21,9 @@
 constexpr int32_t check_is_flying_distance = 20;
 constexpr int32_t check_altitude_is_correct_distance = 50;
 constexpr int32_t check_servo_is_nearby_distance = 200;
-constexpr int32_t max_speed = 400;
+constexpr int32_t max_speed = 200;
 constexpr int32_t check_no_deviation_from_cource_distance = 500;
-constexpr int32_t current_command_update_distance = 100;
+constexpr int32_t current_command_update_distance = 200;
 
 class Security
 {

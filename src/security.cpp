@@ -23,13 +23,14 @@ void Security::tick()
     int32_t lat, lon, alt;
     getCoords(lat,lon,alt);
     CommandWaypoint drone_possition(lat,lon,alt);
-
+    
     if(!check_altitude_is_correct(drone_possition,current_command))
     {
         changeAltitude(commands[current_command].content.waypoint.altitude);
         //sleep(1);
     }
 
+    //task: мб поменять, так как надо будет сбрасывать после посадки
     if(check_set_servo_is_nearby(drone_possition))
     {
         if(!cargo_open)
@@ -48,11 +49,11 @@ void Security::tick()
             //fprintf(stderr, "Cargo close\n");
         }
     }
-
+    //task: добавить таймер
     if(!check_speed_is_correct(drone_possition))
-        changeSpeed(max_speed);
+        changeSpeed(max_speed/100);
     
-
+    //task:  добавить таймер
     if(!check_no_deviation_from_cource(drone_possition))
     {
         int32_t current_waypoint_lat=commands[current_command].content.waypoint.latitude;
@@ -83,7 +84,6 @@ bool Security::check_altitude_is_correct(const CommandWaypoint& drone_possition,
         return true;
     }
 
-
     return abs(drone_possition.altitude-home_alt-command_altitude)<check_altitude_is_correct_distance;
 }
 
@@ -110,10 +110,9 @@ bool Security::check_set_servo_is_nearby(const CommandWaypoint& drone_possition)
     }
     else
     {
-        fprintf(stderr, "current_speed1 = %f\n", abs(current_pos-prev_prev_pos)*0.5/t);
-        fprintf(stderr, "current_speed2 = %f\n", abs(3*current_pos-4*prev_pos+prev_prev_pos)*0.5/t);
-        
-        if(abs(current_pos-prev_prev_pos)*0.5/t>max_speed)
+        //fprintf(stderr, "current_speed1 = %f\n", abs(current_pos-prev_prev_pos)*0.5/t);
+        //fprintf(stderr, "current_speed2 = %f\n", abs(3*current_pos-4*prev_pos+prev_prev_pos)*0.5/t);
+        if(abs(3*current_pos-4*prev_pos+prev_prev_pos)*0.5/t>max_speed)
         {
             prev_prev_pos=Vector3D();
             prev_pos=Vector3D();
@@ -171,6 +170,8 @@ void Security::update_current_command(const CommandWaypoint& drone_possition)
         
         command.altitude=drone_possition.altitude;//Нужно, чтобы не учитывать разницу высот
 
+
+        //fprintf(stderr, "dinstane to current_command = %f\n", distance(drone_possition,command));
         if(distance(drone_possition,command)< current_command_update_distance)
                 current_command+=step;
     }

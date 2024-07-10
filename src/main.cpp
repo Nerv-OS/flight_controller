@@ -18,6 +18,7 @@
 #include <chrono>
 #include <thread>
 
+#include <fstream>
 
 #define RETRY_DELAY_SEC 1
 #define RETRY_REQUEST_DELAY_SEC 5
@@ -94,11 +95,12 @@ int main(void) {
     }
 
 	
-    setKillSwitch(1);
+    
 
     //The drone is ready to arm
     fprintf(stderr, "[%s] Info: Ready to arm\n", ENTITY_NAME);
-    while (true) {
+    while (true) 
+    {
         //Wait, until autopilot wants to arm (and fails so, as motors are disabled by default)
         while (!waitForArmRequest()) {
             fprintf(stderr, "[%s] Warning: Failed to receive an arm request from Autopilot Connector. Trying again in %ds\n", ENTITY_NAME, RETRY_DELAY_SEC);
@@ -131,11 +133,18 @@ int main(void) {
         fprintf(stderr, "[%s] Warning: Arm was not allowed. Waiting for another arm request from autopilot\n", ENTITY_NAME);
     };
 
+    setKillSwitch(1);
+
     //If we get here, the drone is able to arm and start the mission
     //The flight is need to be controlled from now on
     //Also we need to check on ORVD, whether the flight is still allowed or it is need to be paused
 
-	
+
+
+
+
+
+    /*
     double t = 0.1;
     Security sec = Security{get_commands(),t};
     while(!sec.check_is_flying())
@@ -149,6 +158,74 @@ int main(void) {
 
         sec.tick();
     }
+    */
+
+    char* query_mis = "/api/fmission_kos";
+    char* query_kill ="/api/kill_switch";
+    char* query_permit="/api/fly_accept";
+    char response[1024] = {0};
+    char signature[257] = {0};
+    char message[512] = {0};
+
+    bool permit_flight = 1;
+    bool permit_mission = 1;
+    bool on_flight = 1;
+    bool started = 0;
+
+
+    //task: сделать затычку для pause flight
+    while(1)
+        {
+            //sendRequest(query_mis,response);
+            //if(strstr(response,)
+            // strcpy(message, query_permit);
+            // signMessage(message, signature);
+            // sendRequest(query_permit,response);
+            // sleep(1);
+            // uint8_t authenticity = 0;
+            // checkSignature(response, authenticity);
+
+
+            sendSignedMessage("/api/fly_accept", response, "VSE PLOHO", RETRY_DELAY_SEC);
+            if (strstr(response, "$Arm: 1#") != NULL)
+                permit_flight = 0;
+            else if (strstr(response, "$Arm: 0#") != NULL)
+                permit_flight = 1;
+            else 
+                fprintf(stderr, "bad response\n");
+            
+            
+            sendSignedMessage("/api/fmission_kos", response, "VSE PLOHO", RETRY_DELAY_SEC);
+            //fprintf(stderr, "[%s] \n", response);
+            if(strstr(response, "$-1#") != NULL)
+                permit_mission = 0;
+            else if(strstr(response, "$FlightMission") != NULL)
+                permit_mission = 1;
+            else
+                fprintf(stderr, "bad response\n");
+            
+            started = started || (permit_flight && permit_mission);
+
+            if (started)
+                if (permit_flight && permit_mission)
+                {
+                    if (!on_flight)
+                    {
+                        resumeFlight();
+                        on_flight = 1;
+                    }
+                }
+                else
+                {
+                    if (on_flight)
+                    {
+                        pauseFlight();
+                        on_flight = 0;
+                    }
+                }
+
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        }
     
     return EXIT_SUCCESS;
 }
