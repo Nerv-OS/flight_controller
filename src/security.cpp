@@ -5,6 +5,7 @@ bool Security::check_is_flying()
     int32_t lat, lon, alt;
     getCoords(lat,lon,alt);
 
+    //fprintf(stderr, "takeoff diff = %d\n", abs(alt-home_alt-commands[1].content.takeoff.altitude));
     if (abs(alt-home_alt-commands[1].content.takeoff.altitude)<check_is_flying_distance)
     {
         return true;
@@ -22,12 +23,24 @@ void Security::tick()
 {
     int32_t lat, lon, alt;
     getCoords(lat,lon,alt);
+    alt-=home_alt;//Чтобы сразу перейти в локальные и больше об этом не думать
     CommandWaypoint drone_possition(lat,lon,alt);
     
-    if(!check_altitude_is_correct(drone_possition,current_command))
+    double ret;
+
+    if((ret = check_altitude_is_correct(drone_possition,current_command)) != 0)
     {
-        changeAltitude(commands[current_command].content.waypoint.altitude);
-        //sleep(1);
+        if(alt_timer())
+        {
+            changeAltitude(commands[current_command].content.waypoint.altitude);
+            alt_timer.restart();
+        }
+        if(ret>kill_altitude)
+        {
+            setKillSwitch(0);
+            fprintf(stderr, "kill alt\n");
+            exit(EXIT_SUCCESS);
+        }
     }
 
     //task: мб поменять, так как надо будет сбрасывать после посадки
@@ -49,42 +62,97 @@ void Security::tick()
             //fprintf(stderr, "Cargo close\n");
         }
     }
-    //task: добавить таймер
+
+    fprintf(stderr, "deviation_counter = %d\n", deviation_counter);
     if(!check_speed_is_correct(drone_possition))
-        changeSpeed(max_speed/100);
-    
-    //task:  добавить таймер
-    if(!check_no_deviation_from_cource(drone_possition))
     {
-        int32_t current_waypoint_lat=commands[current_command].content.waypoint.latitude;
-        int32_t current_waypoint_lon=commands[current_command].content.waypoint.longitude;
-        int32_t current_waypoint_alt=commands[current_command].content.waypoint.altitude;
-        changeWaypoint(current_waypoint_lat, current_waypoint_lon, current_waypoint_alt);
-        //sleep(1);
+        deviation_counter ++;
+        if(deviation_counter >= speed_change_counter && velocity_timer())
+        {
+            changeSpeed(2);
+            velocity_timer.restart();
+        }
+        if(deviation_counter >= speed_kill_counter)
+        {
+            setKillSwitch(0);
+            fprintf(stderr, "kill speed\n");
+            exit(EXIT_SUCCESS);
+        }
+    }
+    else
+    {
+        deviation_counter = 0;
+    }
+
+    if((ret = check_no_deviation_from_cource(drone_possition)) != 0)
+    {
+        if(waypoint_timer())
+        {
+            int32_t current_waypoint_lat=commands[current_command].content.waypoint.latitude;
+            int32_t current_waypoint_lon=commands[current_command].content.waypoint.longitude;
+            int32_t current_waypoint_alt=commands[current_command].content.waypoint.altitude;
+            changeWaypoint(current_waypoint_lat, current_waypoint_lon, current_waypoint_alt);
+            waypoint_timer.restart();
+        }
+        
+        if(ret>kill_deviation)
+        {
+            setKillSwitch(0);
+            fprintf(stderr, "kill deviation\n");
+            exit(EXIT_SUCCESS);
+        }
     }
 
     update_current_command(drone_possition);
     //fprintf(stderr, "current_command = %d\n", current_command);
 }
 
-bool Security::check_altitude_is_correct(const CommandWaypoint& drone_possition,int32_t command_number)
+double Security::check_altitude_is_correct(const CommandWaypoint& drone_possition,int32_t command_number)
 {
-    int32_t command_altitude;
-    if(commands[command_number].type == CommandType::TAKEOFF)
+    if(commands[command_number].type == CommandType::LAND ||commands[command_number].type == CommandType::TAKEOFF || 
+    commands[command_number-1].type == CommandType::TAKEOFF)
     {
-        command_altitude=commands[command_number].content.takeoff.altitude;
+        return 0;
     }
+    
+    /*CommandWaypoint current_waypoint=commands[current_command].content.waypoint;
+    uint32_t prev_waypoint_number = get_prev_waypoint_number(command_number);
+    CommandWaypoint prev_waypoint{0,0,0};
+    if(prev_waypoint_number == -1)
+    {
+        if(commands[command_number-1].type == CommandType::LAND)
+        {
+            prev_waypoint=commands[command_number-1];
+               prev_waypoint.altitude-=home_alt;
+        }   
+        if(commands[command_number-1].type == CommandType::TAKEOFF)
+        {
+            prev_waypoint.longitude = commands[command_number].content.waypoint.longitude
 
-    if(commands[command_number].type == CommandType::WAYPOINT)
-    {
-        command_altitude=commands[command_number].content.waypoint.altitude;
-    }
-    if(commands[command_number].type == CommandType::LAND)
-    {
-        return true;
-    }
+            prev_waypoint.altitude = commands[command_number-1].content.takeoff.altitude
+            
+        }
 
-    return abs(drone_possition.altitude-home_alt-command_altitude)<check_altitude_is_correct_distance;
+    }
+    else
+    {
+        prev_waypoint=commands[prev_waypoint_number];
+    }
+    */
+    Line line = Line(commands[command_number].content.waypoint, commands[get_prev_waypoint_number(command_number)].content.waypoint);
+    double ro = fabs((drone_possition - line.r0, g * line.a)) / abs(g*line.a); // FIXME when g*a == 0
+    double dist = distance(drone_possition, line);
+    double d = sqrt(dist*dist - ro*ro);
+    fprintf(stderr, "altitude_distance = %f\n", d);
+    if( d < check_altitude_is_correct_distance)
+    {
+        return 0;   
+    }
+    else
+    {
+        return d;
+    }
+    //return abs(drone_possition.altitude-home_alt-command_altitude)<check_altitude_is_correct_distance;
 }
 
 bool Security::check_set_servo_is_nearby(const CommandWaypoint& drone_possition)
@@ -93,7 +161,8 @@ bool Security::check_set_servo_is_nearby(const CommandWaypoint& drone_possition)
         return false;
 
     CommandWaypoint command = commands[number_set_servo_waypoint].content.waypoint;
-    command.altitude=drone_possition.altitude;//Нужно, чтобы не учитывать разницу высот
+    //command.altitude=drone_possition.altitude;//Нужно, чтобы не учитывать разницу высот
+    //fprintf(stderr, "servo_distance = %f\n", distance(command,drone_possition));
     if(distance(command,drone_possition)<check_servo_is_nearby_distance)
         return true;
     return false;
@@ -111,32 +180,34 @@ bool Security::check_set_servo_is_nearby(const CommandWaypoint& drone_possition)
     else
     {
         //fprintf(stderr, "current_speed1 = %f\n", abs(current_pos-prev_prev_pos)*0.5/t);
-        //fprintf(stderr, "current_speed2 = %f\n", abs(3*current_pos-4*prev_pos+prev_prev_pos)*0.5/t);
+        fprintf(stderr, "current_speed2 = %f\n", abs(3*current_pos-4*prev_pos+prev_prev_pos)*0.5/t);
         if(abs(3*current_pos-4*prev_pos+prev_prev_pos)*0.5/t>max_speed)
         {
-            prev_prev_pos=Vector3D();
-            prev_pos=Vector3D();
-            current_pos=Vector3D();
+            //prev_prev_pos=Vector3D();
+            //prev_pos=Vector3D();
+            //current_pos=Vector3D();
             return false;
         }
         return true;
     }
  }
 
-bool Security::check_no_deviation_from_cource(const CommandWaypoint& drone_possition)
+double Security::check_no_deviation_from_cource(const CommandWaypoint& drone_possition)
 {
+    double ret;
     //По умолчанию считаем, что при спуске это верно
-    if(current_command == commands.size()-1)
-        return true;
+    if(commands[current_command].type == CommandType::TAKEOFF || commands[current_command].type == CommandType::LAND 
+    || commands[current_command-1].type == CommandType::TAKEOFF )
+        return 0;
 
 
     CommandWaypoint current_waypoint=commands[current_command].content.waypoint;
-    current_waypoint.altitude=drone_possition.altitude;//Нужно, чтобы не учитывать разницу высот
+    //current_waypoint.altitude=drone_possition.altitude;//Нужно, чтобы не учитывать разницу высот
     uint32_t prev_waypoint_number;
     
 
     if(commands[current_command-1].type == CommandType::TAKEOFF)
-        prev_waypoint_number=0;
+        prev_waypoint_number = 0;
 
     if(commands[current_command-1].type == CommandType::SET_SERVO)
         prev_waypoint_number = number_set_servo_waypoint;
@@ -144,12 +215,20 @@ bool Security::check_no_deviation_from_cource(const CommandWaypoint& drone_possi
     if(commands[current_command-1].type == CommandType::WAYPOINT)
         prev_waypoint_number = current_command-1;
 
-    CommandWaypoint prev_waypoint(commands[prev_waypoint_number].content.waypoint.latitude,
-    commands[prev_waypoint_number].content.waypoint.longitude,current_waypoint.altitude);//Нужно, чтобы не учитывать разницу высот
+    //CommandWaypoint prev_waypoint(commands[prev_waypoint_number].content.waypoint.latitude,
+    //commands[prev_waypoint_number].content.waypoint.longitude,current_waypoint.altitude);//Нужно, чтобы не учитывать разницу высот
+    CommandWaypoint prev_waypoint=commands[prev_waypoint_number].content.waypoint;//3D
 
-
-    //fprintf(stderr, "deviation = %f\n", distance(drone_possition,Line(current_waypoint,prev_waypoint)));
-    return distance(drone_possition,Line(current_waypoint,prev_waypoint)) < check_no_deviation_from_cource_distance;
+    fprintf(stderr, "deviation = %f\n", distance(drone_possition,Line(current_waypoint,prev_waypoint)));
+    //return distance(drone_possition,Line(current_waypoint,prev_waypoint)) < check_no_deviation_from_cource_distance;
+    if((ret = distance(drone_possition,Line(current_waypoint,prev_waypoint))) < check_no_deviation_from_cource_distance)
+    {
+        return 0;
+    }
+    else
+    {
+        return ret;
+    }
 }
 
 void Security::update_current_command(const CommandWaypoint& drone_possition)
@@ -168,7 +247,7 @@ void Security::update_current_command(const CommandWaypoint& drone_possition)
             step = 1;
         }
         
-        command.altitude=drone_possition.altitude;//Нужно, чтобы не учитывать разницу высот
+        //command.altitude=drone_possition.altitude;//Нужно, чтобы не учитывать разницу высот
 
 
         //fprintf(stderr, "dinstane to current_command = %f\n", distance(drone_possition,command));
@@ -176,3 +255,42 @@ void Security::update_current_command(const CommandWaypoint& drone_possition)
                 current_command+=step;
     }
 }
+
+uint32_t Security::get_prev_waypoint_number (uint32_t command)
+{
+    uint32_t prev_waypoint_number = -1;
+
+    if(commands[command-1].type == CommandType::SET_SERVO)
+        prev_waypoint_number = number_set_servo_waypoint;
+
+    if(commands[command-1].type == CommandType::WAYPOINT)
+        prev_waypoint_number = command-1;
+
+    return prev_waypoint_number;
+}
+
+/*
+CommandWaypoint Security::convert_to_waypoint(const MissionCommand& commmand)
+{
+    if(commmand.type == CommandType::WAYPOINT)
+    {
+        return commmand;
+    }
+
+    CommandWaypoint ret(0,0,0);
+    if(commmand.type == CommandType::LAND)
+    {
+        ret.longitude = commmand.content.waypoint.longitude;
+        ret.latitude = commmand.content.waypoint.latitude;
+        ret.altitude = commmand.content.waypoint.altitude - home_alt;
+        return ret;
+    }
+    
+    if(commmand.type == CommandType::TAKEOFF)
+    {
+        ret.longitude = commmand.content.waypoint.longitude;
+        ret.latitude = commmand.content.waypoint.latitude;
+        ret.altitude = commmand.content.waypoint.altitude;
+        return ret;
+    }
+}*/

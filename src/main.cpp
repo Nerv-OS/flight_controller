@@ -18,7 +18,6 @@
 #include <chrono>
 #include <thread>
 
-#include <fstream>
 
 #define RETRY_DELAY_SEC 1
 #define RETRY_REQUEST_DELAY_SEC 5
@@ -94,13 +93,9 @@ int main(void) {
         sleep(RETRY_REQUEST_DELAY_SEC);
     }
 
-	
-    
-
     //The drone is ready to arm
     fprintf(stderr, "[%s] Info: Ready to arm\n", ENTITY_NAME);
-    while (true) 
-    {
+    while (true) {
         //Wait, until autopilot wants to arm (and fails so, as motors are disabled by default)
         while (!waitForArmRequest()) {
             fprintf(stderr, "[%s] Warning: Failed to receive an arm request from Autopilot Connector. Trying again in %ds\n", ENTITY_NAME, RETRY_DELAY_SEC);
@@ -115,7 +110,8 @@ int main(void) {
         if (strstr(armRespone, "$Arm: 0#") != NULL) {
             //If arm was permitted, we enable motors
             fprintf(stderr, "[%s] Info: Arm is permitted\n", ENTITY_NAME);
-            while (!setKillSwitch(true)) {
+            while (!setKillSwitch(true)) 
+            {
                 fprintf(stderr, "[%s] Warning: Failed to permit motor usage at Periphery Controller. Trying again in %ds\n", ENTITY_NAME, RETRY_DELAY_SEC);
                 sleep(RETRY_DELAY_SEC);
             }
@@ -133,23 +129,22 @@ int main(void) {
         fprintf(stderr, "[%s] Warning: Arm was not allowed. Waiting for another arm request from autopilot\n", ENTITY_NAME);
     };
 
-    setKillSwitch(1);
-
     //If we get here, the drone is able to arm and start the mission
     //The flight is need to be controlled from now on
     //Also we need to check on ORVD, whether the flight is still allowed or it is need to be paused
 
+    setKillSwitch(1);
 
 
 
 
 
-    /*
+    
     double t = 0.1;
     Security sec = Security{get_commands(),t};
     while(!sec.check_is_flying())
     {
-        sleep(4);
+        std::this_thread::sleep_for(std::chrono::milliseconds(int(t*1000)));
     }
     setCargoLock(0);
 	while (true)
@@ -158,7 +153,7 @@ int main(void) {
 
         sec.tick();
     }
-    */
+    /*
 
     char* query_mis = "/api/fmission_kos";
     char* query_kill ="/api/kill_switch";
@@ -171,7 +166,6 @@ int main(void) {
     bool permit_mission = 1;
     bool on_flight = 1;
     bool started = 0;
-
 
     //task: сделать затычку для pause flight
     while(1)
@@ -226,6 +220,10 @@ int main(void) {
 
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
         }
-    
+    */
+    while(1)
+        {
+        sleep(300);
+        }
     return EXIT_SUCCESS;
 }

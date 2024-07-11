@@ -18,12 +18,56 @@
 
 #include "../include/coords.h"
 
+
+#include <ctime>
+
+class Timer
+{
+  clock_t delay;
+  clock_t prev;
+
+public: 
+  Timer (unsigned int milliseconds) 
+    : delay {CLOCKS_PER_SEC * milliseconds / 1000}
+    , prev {clock()} 
+  {}
+
+  bool operator() ()
+  {
+    fprintf(stderr, "check timer, delay = %d\n", delay);
+    if ((clock() - prev) > delay)
+    {
+      prev = clock();
+      return true;
+    }
+    else 
+      return false;
+  }
+
+  void restart()
+  {
+    fprintf(stderr, "timer restart, delay = %d\n", delay);
+    prev = clock();
+  }
+};
+
+
 constexpr int32_t check_is_flying_distance = 20;
 constexpr int32_t check_altitude_is_correct_distance = 50;
-constexpr int32_t check_servo_is_nearby_distance = 200;
-constexpr int32_t max_speed = 200;
-constexpr int32_t check_no_deviation_from_cource_distance = 500;
-constexpr int32_t current_command_update_distance = 200;
+constexpr int32_t check_servo_is_nearby_distance = 20;
+constexpr int32_t max_speed = 225;
+constexpr int32_t check_no_deviation_from_cource_distance = 150;
+constexpr int32_t current_command_update_distance = 150;
+
+constexpr int32_t alt_delay = 800;
+constexpr int32_t velocity_delay = 300;
+constexpr int32_t waypoint_delay = 1200;
+
+constexpr int32_t kill_altitude = 125;
+constexpr int32_t kill_deviation = 300;
+
+constexpr int32_t speed_change_counter = 2;
+constexpr int32_t speed_kill_counter = 50;
 
 class Security
 {
@@ -39,12 +83,22 @@ public:
     Vector3D prev_prev_pos;
     bool cargo_open = false;
     
+    Timer alt_timer {alt_delay};
+    Timer velocity_timer {velocity_delay};
+    Timer waypoint_timer {waypoint_delay};
+
+    int32_t deviation_counter = 0;
     
-
-
-    Security(const std::vector<MissionCommand>& other_commands,const double t_): commands{other_commands},
-     home_alt{other_commands[0].content.waypoint.altitude}, t{t_}
+    const Vector3D g;
+    
+    Security(const std::vector<MissionCommand>& other_commands,const double t_)
+            : commands{other_commands}
+            , t{t_}
+            , g{Vector3D(Vector3D(other_commands[0].content.waypoint).x/(A*A), Vector3D(other_commands[0].content.waypoint).y/(A*A), Vector3D(other_commands[0].content.waypoint).z/(A*sqrt(1-E*E)*A*sqrt(1-E*E)))}
     {
+      int32_t a;
+      int32_t b;
+      getCoords(a,b,home_alt);
         for(uint i=0; i<other_commands.size(); i++)
         {
             if(other_commands[i].type == CommandType::SET_SERVO)
@@ -63,17 +117,23 @@ public:
 
 private:
 
-    bool check_altitude_is_correct(const CommandWaypoint& drone_possition, int32_t command_number);//Может принимать Takeoff и Waypoint, а для Land всегда true
+    uint32_t get_prev_waypoint_number (uint32_t command_number);//Возвращает -1, если не получается найти 
+
+    double check_altitude_is_correct(const CommandWaypoint& drone_possition, int32_t command_number);//Land и takeoff или до этого takeoff всегда true
 
     bool check_set_servo_is_nearby(const CommandWaypoint& drone_possition);
 
     bool check_speed_is_correct(const CommandWaypoint& drone_possition);
 
-    bool check_no_deviation_from_cource(const CommandWaypoint& drone_possition);//Для Land всегда true
+    double check_no_deviation_from_cource(const CommandWaypoint& drone_possition);//Для Land и takeoff всегда true
 
     void update_current_command(const CommandWaypoint& drone_possition);
 
+    CommandWaypoint convert_to_waypoint(const MissionCommand& commmand);
+
 };
+
+
 
 
 #endif // SECURITY
