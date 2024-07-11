@@ -112,7 +112,7 @@ struct Line
     Line (const Vector3D& r1, const Vector3D& r2): r0{r1}, a{r2 - r1} 
     {
         if (r1 == r2)
-	    throw std::runtime_error("Points must be different to create line");
+	        throw std::runtime_error("Points must be different to create line");
     }
     Line (const CommandWaypoint& r1, const CommandWaypoint& r2): Line(Vector3D(r1), Vector3D(r2)) {}
 };
@@ -121,5 +121,41 @@ bool operator== (const Line& l1, const Line& l2);
 
 double distance (const Vector3D& M, const Line& l);
 double distance (const CommandWaypoint& M, const Line& l);
+
+
+struct Trajectory
+{
+    std::vector<CommandWaypoint> points;
+
+    Trajectory(const std::vector<MissionCommand>& other_commands) : points{}
+    {
+        for(uint i=0; i<other_commands.size(); i++)
+        {
+            //fprintf(stderr, "ALL lat=%d lon=%d alt=%d\n", other_commands[i].content.waypoint.latitude, other_commands[i].content.waypoint.longitude, other_commands[i].content.waypoint.altitude);
+            if(other_commands[i].type == CommandType::HOME || other_commands[i].type == CommandType::LAND)
+            {
+                points.emplace_back(other_commands[i].content.waypoint.latitude, other_commands[i].content.waypoint.longitude, 0);
+                //fprintf(stderr, "HOME lat=%d lon=%d alt=%d\n", points[points.size() - 1].latitude, points[points.size() - 1].longitude, points[points.size() - 1].altitude);
+            }
+            else if(other_commands[i].type == CommandType::TAKEOFF)
+            {
+                points.emplace_back( other_commands[i-1].content.waypoint.latitude
+                                   , other_commands[i-1].content.waypoint.longitude
+                                   , other_commands[i].content.takeoff.altitude);
+                //fprintf(stderr, "TAKEOFF lat=%d lon=%d alt=%d\n", points[points.size() - 1].latitude, points[points.size() - 1].longitude, points[points.size() - 1].altitude);
+            }
+            else if(other_commands[i].type == CommandType::WAYPOINT)
+            {
+                points.push_back(other_commands[i].content.waypoint);
+                //fprintf(stderr, "WAYPOINT lat=%d lon=%d alt=%d\n", points[points.size() - 1].latitude, points[points.size() - 1].longitude, points[points.size() - 1].altitude);
+            }
+            else if(other_commands[i].type == CommandType::SET_SERVO)
+            {
+                continue;
+            }
+        }
+    }
+};
+
 
 #endif // COORDS

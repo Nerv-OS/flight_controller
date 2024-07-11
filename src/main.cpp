@@ -162,29 +162,56 @@ int main(void) {
 
     setKillSwitch(1);
 
-
-
-    char response[1024] = {0};
-
     bool permit_flight = 1;
     bool permit_mission = 1;
     bool on_flight = 1;
     bool started = 0;
 
-    
-    double t = 0.2;
+    std::thread orvd_check ([](bool& permit_flight,
+                               bool& permit_mission){
+        char response[1024] = {0};
+
+        while(1)
+        {
+            if (sendSignedMessage_nowait("/api/fly_accept", response, "VSE PLOHO"))
+            {
+                if (strstr(response, "$Arm: 1#") != NULL)
+                    permit_flight = 0;
+                else if (strstr(response, "$Arm: 0#") != NULL)
+                    permit_flight = 1;
+                else 
+                    fprintf(stderr, "bad response\n");
+            }   
+            
+            if (sendSignedMessage_nowait("/api/fmission_kos", response, "VSE PLOHO"))
+            //fprintf(stderr, "[%s] \n", response);
+            {
+                if(strstr(response, "$-1#") != NULL)
+                    permit_mission = 0;
+                else if(strstr(response, "$FlightMission") != NULL)
+                    permit_mission = 1;
+                else
+                    fprintf(stderr, "bad response\n");
+            }
+
+            std::this_thread::sleep_for(std::chrono::milliseconds(int(100)));
+        }
+        return;
+    }, std::ref(permit_flight), std::ref(permit_mission));
+
+    double t = 0.1;
     Security sec = Security{get_commands(),t};
-    while(!sec.check_is_flying())
+    /*while(!sec.check_is_flying())
     {
         std::this_thread::sleep_for(std::chrono::milliseconds(int(t/2*1000)));
-    }
+    }*/
     setCargoLock(0);
 	while (true)
     {
-        std::this_thread::sleep_for(std::chrono::milliseconds(int(t/2*1000)));
+        std::this_thread::sleep_for(std::chrono::milliseconds(int(t*1000)));
         
-        if (on_flight)
-            sec.tick();
+        //if (on_flight)
+        sec.tick();
  
     //task: сделать затычку для pause flight
             //sendRequest(query_mis,response);
@@ -196,29 +223,6 @@ int main(void) {
             // uint8_t authenticity = 0;
             // checkSignature(response, authenticity);
 
-
-        if (sendSignedMessage_nowait("/api/fly_accept", response, "VSE PLOHO"))
-        {
-            if (strstr(response, "$Arm: 1#") != NULL)
-                permit_flight = 0;
-            else if (strstr(response, "$Arm: 0#") != NULL)
-                permit_flight = 1;
-            else 
-                fprintf(stderr, "bad response\n");
-        }
-            
-            
-        if (sendSignedMessage_nowait("/api/fmission_kos", response, "VSE PLOHO"))
-        //fprintf(stderr, "[%s] \n", response);
-        {
-            if(strstr(response, "$-1#") != NULL)
-                permit_mission = 0;
-            else if(strstr(response, "$FlightMission") != NULL)
-                permit_mission = 1;
-            else
-                fprintf(stderr, "bad response\n");
-        }
-
         started = started || (permit_flight && permit_mission);
 
         if (started)
@@ -228,6 +232,7 @@ int main(void) {
                 if (!on_flight)
                 {
                     resumeFlight();
+                    sec.at_pause = !sec.at_pause;
                     on_flight = 1;
                 }
             }
@@ -236,11 +241,15 @@ int main(void) {
                 if (on_flight)
                 {
                     pauseFlight();
+                    sec.at_pause = !sec.at_pause;
                     on_flight = 0;
+                    sec.at_pause_flight();
                 }
             }
         }
     }
  
+    orvd_check.join();
+
     return EXIT_SUCCESS;
 }

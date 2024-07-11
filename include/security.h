@@ -75,7 +75,9 @@ public:
     std::vector<MissionCommand> commands;
     int32_t home_alt;
     uint32_t number_set_servo_waypoint = 0; //Если оно останется равном 0, значит не надо сбрасывать груз
-    uint32_t current_command = 2;
+    uint32_t current_command = 1;
+    bool takeoff_land = 1;
+    bool at_pause = 0;
     double t;
 
     Vector3D current_pos;
@@ -90,11 +92,17 @@ public:
 
     int32_t deviation_counter = 0;
     
+    Trajectory trajectory;
+    int32_t number_cur_waypoint = 1;
+    CommandWaypoint current_waypoint;
+
     const Vector3D g;
     
     Security(const std::vector<MissionCommand>& other_commands,const double t_)
             : commands{other_commands}
             , t{t_}
+            , trajectory {other_commands}
+            , current_waypoint {trajectory.points[number_cur_waypoint]}
             , g{Vector3D(Vector3D(other_commands[0].content.waypoint).x/(A*A), Vector3D(other_commands[0].content.waypoint).y/(A*A), Vector3D(other_commands[0].content.waypoint).z/(A*sqrt(1-E*E)*A*sqrt(1-E*E)))}
     {
       int32_t a;
@@ -114,9 +122,11 @@ public:
 
     void tick();
 
-    
+    void at_pause_flight();
 
 private:
+
+    bool block_update = 0;
 
     uint32_t get_prev_waypoint_number (uint32_t command_number);//Возвращает -1, если не получается найти 
 
