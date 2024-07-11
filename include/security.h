@@ -54,10 +54,10 @@ public:
 
 constexpr int32_t check_is_flying_distance = 20;
 constexpr int32_t check_altitude_is_correct_distance = 50;
-constexpr int32_t check_servo_is_nearby_distance = 20;
+constexpr int32_t check_servo_is_nearby_distance = 50;
 constexpr int32_t max_speed = 225;
-constexpr int32_t check_no_deviation_from_cource_distance = 150;
-constexpr int32_t current_command_update_distance = 150;
+constexpr int32_t check_no_deviation_from_cource_distance = 175;
+constexpr int32_t current_command_update_distance = 175;
 
 constexpr int32_t alt_delay = 800;
 constexpr int32_t velocity_delay = 300;
@@ -82,6 +82,7 @@ public:
     Vector3D prev_pos;
     Vector3D prev_prev_pos;
     bool cargo_open = false;
+    
     
     Timer alt_timer {alt_delay};
     Timer velocity_timer {velocity_delay};

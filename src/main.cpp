@@ -49,6 +49,33 @@ int sendSignedMessage(char* method, char* response, char* errorMessage, uint8_t 
     return 1;
 }
 
+int sendSignedMessage_nowait(char* method, char* response, char* errorMessage) {
+    char message[512] = {0};
+    char signature[257] = {0};
+    char request[1024] = {0};
+    snprintf(message, 512, "%s?%s", method, BOARD_ID);
+
+    if (!signMessage(message, signature)) {
+        fprintf(stderr, "[%s] Warning: Failed to sign %s message at Credential Manager\n", ENTITY_NAME, errorMessage);
+	    return 0;
+    }
+    snprintf(request, 1024, "%s&sig=0x%s", message, signature);
+
+    if (!sendRequest(request, response)) {
+        fprintf(stderr, "[%s] Warning: Failed to send %s request through Server Connector\n", ENTITY_NAME, errorMessage);
+        return 0;
+    }
+
+    uint8_t authenticity = 0;
+    if (!checkSignature(response, authenticity) || !authenticity) {
+        fprintf(stderr, "[%s] Warning: Failed to check signature of %s response received through Server Connector\n", ENTITY_NAME, errorMessage);
+        return 0;
+    }
+
+    return authenticity;
+}
+
+
 int main(void) {
     //Before do anything, we need to ensure, that other modules are ready to work
     while (!waitForInit("periphery_controller_connection", "PeripheryController")) {
@@ -137,39 +164,29 @@ int main(void) {
 
 
 
-
-
-    
-    double t = 0.1;
-    Security sec = Security{get_commands(),t};
-    while(!sec.check_is_flying())
-    {
-        std::this_thread::sleep_for(std::chrono::milliseconds(int(t*1000)));
-    }
-    setCargoLock(0);
-	while (true)
-    {
-        std::this_thread::sleep_for(std::chrono::milliseconds(int(t*1000)));
-
-        sec.tick();
-    }
-    /*
-
-    char* query_mis = "/api/fmission_kos";
-    char* query_kill ="/api/kill_switch";
-    char* query_permit="/api/fly_accept";
     char response[1024] = {0};
-    char signature[257] = {0};
-    char message[512] = {0};
 
     bool permit_flight = 1;
     bool permit_mission = 1;
     bool on_flight = 1;
     bool started = 0;
 
+    
+    double t = 0.2;
+    Security sec = Security{get_commands(),t};
+    while(!sec.check_is_flying())
+    {
+        std::this_thread::sleep_for(std::chrono::milliseconds(int(t/2*1000)));
+    }
+    setCargoLock(0);
+	while (true)
+    {
+        std::this_thread::sleep_for(std::chrono::milliseconds(int(t/2*1000)));
+        
+        if (on_flight)
+            sec.tick();
+ 
     //task: сделать затычку для pause flight
-    while(1)
-        {
             //sendRequest(query_mis,response);
             //if(strstr(response,)
             // strcpy(message, query_permit);
@@ -180,50 +197,50 @@ int main(void) {
             // checkSignature(response, authenticity);
 
 
-            sendSignedMessage("/api/fly_accept", response, "VSE PLOHO", RETRY_DELAY_SEC);
+        if (sendSignedMessage_nowait("/api/fly_accept", response, "VSE PLOHO"))
+        {
             if (strstr(response, "$Arm: 1#") != NULL)
                 permit_flight = 0;
             else if (strstr(response, "$Arm: 0#") != NULL)
                 permit_flight = 1;
             else 
                 fprintf(stderr, "bad response\n");
+        }
             
             
-            sendSignedMessage("/api/fmission_kos", response, "VSE PLOHO", RETRY_DELAY_SEC);
-            //fprintf(stderr, "[%s] \n", response);
+        if (sendSignedMessage_nowait("/api/fmission_kos", response, "VSE PLOHO"))
+        //fprintf(stderr, "[%s] \n", response);
+        {
             if(strstr(response, "$-1#") != NULL)
                 permit_mission = 0;
             else if(strstr(response, "$FlightMission") != NULL)
                 permit_mission = 1;
             else
                 fprintf(stderr, "bad response\n");
-            
-            started = started || (permit_flight && permit_mission);
-
-            if (started)
-                if (permit_flight && permit_mission)
-                {
-                    if (!on_flight)
-                    {
-                        resumeFlight();
-                        on_flight = 1;
-                    }
-                }
-                else
-                {
-                    if (on_flight)
-                    {
-                        pauseFlight();
-                        on_flight = 0;
-                    }
-                }
-
-            std::this_thread::sleep_for(std::chrono::milliseconds(100));
         }
-    */
-    while(1)
+
+        started = started || (permit_flight && permit_mission);
+
+        if (started)
         {
-        sleep(300);
+            if (permit_flight && permit_mission)
+            {
+                if (!on_flight)
+                {
+                    resumeFlight();
+                    on_flight = 1;
+                }
+            }
+            else
+            {
+                if (on_flight)
+                {
+                    pauseFlight();
+                    on_flight = 0;
+                }
+            }
         }
+    }
+ 
     return EXIT_SUCCESS;
 }
