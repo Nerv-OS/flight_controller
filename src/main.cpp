@@ -231,6 +231,9 @@ int main(void) {
             {
                 if (!on_flight)
                 {
+                    int32_t lat, lon, alt;
+                    getCoords(lat, lon, alt);
+                    sec.home_alt = alt; 
                     resumeFlight();
                     sec.at_pause = !sec.at_pause;
                     on_flight = 1;

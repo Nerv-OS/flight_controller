@@ -326,11 +326,12 @@ void Security::at_pause_flight()
     int32_t lat, lon, alt;
     getCoords(lat, lon, alt);
     //FFFFFFFFFFFFF
-    trajectory.points.insert(trajectory.points.begin()+number_cur_waypoint, CommandWaypoint(lat, lon, alt - home_alt));
-    trajectory.points.insert(trajectory.points.begin()+number_cur_waypoint+1, CommandWaypoint(lat, lon, 0));
-    trajectory.points.insert(trajectory.points.begin()+number_cur_waypoint+2, CommandWaypoint(lat, lon, alt - home_alt));
+    //trajectory.points.insert(trajectory.points.begin()+number_cur_waypoint, CommandWaypoint(lat, lon, alt - home_alt));
+    trajectory.points.insert(trajectory.points.begin()+number_cur_waypoint, CommandWaypoint(lat, lon, 0));
+    trajectory.points.insert(trajectory.points.begin()+number_cur_waypoint+1, CommandWaypoint(lat, lon, alt - home_alt));
+    fprintf(stderr, "alt = %d, diff = %d, wayp_alt = %d\n", alt, alt-home_alt, commands[current_command].content.waypoint.altitude);
     takeoff_land = 1;
-    current_waypoint = trajectory.points[++number_cur_waypoint];
+    current_waypoint = trajectory.points[number_cur_waypoint];
 }
 
 /*
