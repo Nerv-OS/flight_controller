@@ -1,11 +1,4 @@
 #include "../include/mission.h"
-#include "../../shared/include/initialization_interface.h"
-#include "../../shared/include/ipc_messages_initialization.h"
-#include "../../shared/include/ipc_messages_autopilot_connector.h"
-#include "../../shared/include/ipc_messages_credential_manager.h"
-#include "../../shared/include/ipc_messages_navigation_system.h"
-#include "../../shared/include/ipc_messages_periphery_controller.h"
-#include "../../shared/include/ipc_messages_server_connector.h"
 
 #include <math.h>
 #include <stdio.h>
@@ -133,6 +126,7 @@ int main(void) {
         //When autopilot asked for arm, we need to receive permission from ORVD
         char armRespone[1024] = {0};
         sendSignedMessage("/api/arm", armRespone, "arm", RETRY_DELAY_SEC);
+        
 
         if (strstr(armRespone, "$Arm: 0#") != NULL) {
             //If arm was permitted, we enable motors
@@ -201,10 +195,7 @@ int main(void) {
 
     double t = 0.1;
     Security sec = Security{get_commands(),t};
-    /*while(!sec.check_is_flying())
-    {
-        std::this_thread::sleep_for(std::chrono::milliseconds(int(t/2*1000)));
-    }*/
+    
     setCargoLock(0);
 	while (true)
     {
@@ -253,6 +244,7 @@ int main(void) {
     }
  
     orvd_check.join();
+
 
     return EXIT_SUCCESS;
 }

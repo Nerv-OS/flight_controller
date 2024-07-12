@@ -230,3 +230,26 @@ int32_t get_home_altitude()
 {
     return commands[0].content.waypoint.altitude;
 }
+
+
+int sendLogMessage(char* input, char* response, char* errorMessage) {
+    char message[512] = {0};
+    char signature[257] = {0};
+    char request[1024] = {0};
+    snprintf(message, 512, "%s?%s&log=%s", "/api/logs", BOARD_ID, input);
+
+    if (!signMessage(message, signature)) {
+        fprintf(stderr, "[%s] Warning: Failed to sign %s message at Credential Manager. Trying again in %ds\n", ENTITY_NAME, errorMessage);
+        return 0;
+    }
+    snprintf(request, 1024, "%s&sig=0x%s", message, signature);
+
+    if (!sendRequest(request, response)) {
+        fprintf(stderr, "[%s] Warning: Failed to send %s request through Server Connector. Trying again in %ds\n", ENTITY_NAME, errorMessage);
+        return 0;
+    }
+
+    uint8_t authenticity = 0;
+    fprintf(stderr, "%s - response from orvd", response);
+    return 1;
+}

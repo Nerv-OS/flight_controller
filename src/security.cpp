@@ -24,6 +24,12 @@ void Security::tick()
     fprintf(stderr, "----------------------------------------------------\n");
     int32_t lat, lon, alt;
     getCoords(lat,lon,alt);
+    
+    // char message[512] = {0};
+    // snprintf(message, 512, "Current coords: latitude = %d, longitude = %d, altitude = %d\n", lat, lon, alt);
+    // char response[512] = {0};
+    // sendLogMessage(message, response, "Fail in sending coordinates\n");
+
     alt-=home_alt;//Чтобы сразу перейти в локальные и больше об этом не думать
     CommandWaypoint drone_possition(lat,lon,alt);
     
@@ -113,7 +119,7 @@ void Security::tick()
             exit(EXIT_SUCCESS);
         }
     }
-
+    
     update_current_command(drone_possition);
     fprintf(stderr, "current_command = %d\n", current_command);
     fprintf(stderr, "takeoff_land = %d, at_pause = %d\n", takeoff_land, at_pause);
@@ -158,6 +164,12 @@ double Security::check_altitude_is_correct(const CommandWaypoint& drone_possitio
     double dist = distance(drone_possition, line);
     double d = sqrt(dist*dist - ro*ro);
     fprintf(stderr, "altitude_distance = %f\n", d);
+
+    // char message[512] = {0};
+    // snprintf(message, 512, "Current altitude deviation = %f\n", d);
+    // char response[512] = {0};
+    // sendLogMessage(message, response, "Fail in sending altitude deviation\n");
+
     if( d < check_altitude_is_correct_distance)
     {
         return 0;   
@@ -193,8 +205,14 @@ bool Security::check_set_servo_is_nearby(const CommandWaypoint& drone_possition)
     }
     else
     {
+        double speed = abs(3*current_pos-4*prev_pos+prev_prev_pos)*0.5/t;
         //fprintf(stderr, "current_speed1 = %f\n", abs(current_pos-prev_prev_pos)*0.5/t);
-        fprintf(stderr, "current_speed2 = %f\n", abs(3*current_pos-4*prev_pos+prev_prev_pos)*0.5/t);
+        fprintf(stderr, "current_speed2 = %f\n", speed);
+        // char message[512] = {0};
+        // snprintf(message, 512, "Current speed = %f\n", speed);
+        // char response[512] = {0};
+        // sendLogMessage(message, response, "Fail in sending velocity\n");
+        
         if(abs(3*current_pos-4*prev_pos+prev_prev_pos)*0.5/t>max_speed)
         {
             //prev_prev_pos=Vector3D();
@@ -208,13 +226,12 @@ bool Security::check_set_servo_is_nearby(const CommandWaypoint& drone_possition)
 
 double Security::check_no_deviation_from_cource(const CommandWaypoint& drone_possition)
 {
-    double ret;
     //По умолчанию считаем, что при спуске это верно
     // if(commands[current_command].type == CommandType::TAKEOFF || commands[current_command].type == CommandType::LAND 
     // || commands[current_command-1].type == CommandType::TAKEOFF )
         // return 0;
     CommandWaypoint prev_waypoint=trajectory.points[number_cur_waypoint-1];
-
+    double ret = distance(drone_possition,Line(current_waypoint,prev_waypoint));
     // CommandWaypoint current_waypoint=commands[current_command].content.waypoint;
     // current_waypoint.altitude=drone_possition.altitude;//Нужно, чтобы не учитывать разницу высот
     // uint32_t prev_waypoint_number;
@@ -235,14 +252,19 @@ double Security::check_no_deviation_from_cource(const CommandWaypoint& drone_pos
 
     // fprintf(stderr, "where is deviation = %f\n", distance(drone_possition,Line(current_waypoint,prev_waypoint)));
     //return distance(drone_possition,Line(current_waypoint,prev_waypoint)) < check_no_deviation_from_cource_distance;
-    if((ret = distance(drone_possition,Line(current_waypoint,prev_waypoint))) < check_no_deviation_from_cource_distance)
+    // fprintf(stderr, "%d %d %d %d %d %d WHEREEEEEEEEEEE", trajectory.points[1].latitude, trajectory.points[1].latitude, commands[1].content.waypoint.latitude, commands[1].content.waypoint.longitude);
+    
+    // char message[512] = {0};
+    // snprintf(message, 512, "Current trajectory deviation = %f\n", ret);
+    // char response[512] = {0};
+    // sendLogMessage(message, response, "Fail in sending trajectory deviation\n");
+
+    if(ret < check_no_deviation_from_cource_distance)
     {
-        fprintf(stderr, "ret - %f\n", ret);
         return 0;
     }
     else
     {
-        fprintf(stderr, "ret - %f\n", ret);
         return ret;
     }
 }
@@ -325,7 +347,6 @@ void Security::at_pause_flight()
     fprintf(stderr, "Flight pause\n");
     int32_t lat, lon, alt;
     getCoords(lat, lon, alt);
-    //FFFFFFFFFFFFF
     //trajectory.points.insert(trajectory.points.begin()+number_cur_waypoint, CommandWaypoint(lat, lon, alt - home_alt));
     trajectory.points.insert(trajectory.points.begin()+number_cur_waypoint, CommandWaypoint(lat, lon, 0));
     trajectory.points.insert(trajectory.points.begin()+number_cur_waypoint+1, CommandWaypoint(lat, lon, alt - home_alt));

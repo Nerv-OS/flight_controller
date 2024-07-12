@@ -53,18 +53,20 @@ public:
 
 
 constexpr int32_t check_is_flying_distance = 20;
-constexpr int32_t check_altitude_is_correct_distance = 50;
+
+
+constexpr int32_t check_altitude_is_correct_distance = 30;
 constexpr int32_t check_servo_is_nearby_distance = 50;
 constexpr int32_t max_speed = 225;
-constexpr int32_t check_no_deviation_from_cource_distance = 175;
+constexpr int32_t check_no_deviation_from_cource_distance = 200;
 constexpr int32_t current_command_update_distance = 175;
 
-constexpr int32_t alt_delay = 800;
+constexpr int32_t alt_delay = 3000;
 constexpr int32_t velocity_delay = 300;
-constexpr int32_t waypoint_delay = 1200;
+constexpr int32_t waypoint_delay = 3000;
 
-constexpr int32_t kill_altitude = 125;
-constexpr int32_t kill_deviation = 300;
+constexpr int32_t kill_altitude = 100;
+constexpr int32_t kill_deviation = 250;
 
 constexpr int32_t speed_change_counter = 2;
 constexpr int32_t speed_kill_counter = 50;
@@ -107,15 +109,42 @@ public:
     {
       int32_t a;
       int32_t b;
+
+      trajectory.print_points();
+
       getCoords(a,b,home_alt);
-        for(uint i=0; i<other_commands.size(); i++)
-        {
-            if(other_commands[i].type == CommandType::SET_SERVO)
-            {
-                number_set_servo_waypoint = i-1;
-                break;
-            }
-        }
+      commands[0].content.waypoint.latitude = a;
+      commands[0].content.waypoint.longitude = b;
+      commands[0].content.waypoint.altitude = home_alt;
+
+      char message[512] = {0};
+      char response[512] = {0};
+
+      trajectory.points[0].latitude = a;
+      trajectory.points[0].longitude = b;
+
+      snprintf(message, 512, "Changed trajectory point 0 to coords: latitude = %d, logitude = %d, altitude = %d", a, b, trajectory.points[0].altitude);
+      sendLogMessage(message, response, "Fail in sending changed mission point");
+
+      trajectory.points[1].latitude = a;
+      trajectory.points[1].longitude = b; 
+
+      snprintf(message, 512, "Changed trajectory point 1 to coords: latitude = %d, logitude = %d, altitude = %d", a, b, trajectory.points[0].altitude);
+      sendLogMessage(message, response, "Fail in sending changed mission point");
+
+
+      current_waypoint = trajectory.points[1];
+
+      // trajectory.print_points();
+
+      for(uint i=0; i<other_commands.size(); i++)
+      {
+           if(other_commands[i].type == CommandType::SET_SERVO)
+           {
+              number_set_servo_waypoint = i-1;
+              break;
+          }
+      }
     }
 
     bool check_is_flying();

@@ -1,9 +1,21 @@
 #pragma once
+
+#include "../../shared/include/initialization_interface.h"
+#include "../../shared/include/ipc_messages_initialization.h"
+#include "../../shared/include/ipc_messages_autopilot_connector.h"
+#include "../../shared/include/ipc_messages_credential_manager.h"
+#include "../../shared/include/ipc_messages_navigation_system.h"
+#include "../../shared/include/ipc_messages_periphery_controller.h"
+#include "../../shared/include/ipc_messages_server_connector.h"
+
+
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <vector>
+
+int sendLogMessage(char* input, char* response, char* errorMessage);
 
 enum CommandType {
     HOME,

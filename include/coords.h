@@ -129,12 +129,17 @@ struct Trajectory
 
     Trajectory(const std::vector<MissionCommand>& other_commands) : points{}
     {
+        char message[512] = {0};
+        char response[512] = {0};
         for(uint i=0; i<other_commands.size(); i++)
         {
             //fprintf(stderr, "ALL lat=%d lon=%d alt=%d\n", other_commands[i].content.waypoint.latitude, other_commands[i].content.waypoint.longitude, other_commands[i].content.waypoint.altitude);
             if(other_commands[i].type == CommandType::HOME || other_commands[i].type == CommandType::LAND)
             {
                 points.emplace_back(other_commands[i].content.waypoint.latitude, other_commands[i].content.waypoint.longitude, 0);
+                int ter = (other_commands[i].type == CommandType::HOME) 
+                          ? snprintf(message, 512, "Point %d is HOME with coords: latitude = %d, logitude = %d, altitude = %d\n", i, points[i].latitude, points[i].longitude, 0)
+                          : snprintf(message, 512, "Point %d is LAND with coords: latitude = %d, logitude = %d, altitude = %d\n", i, points[i].latitude, points[i].longitude, 0);
                 //fprintf(stderr, "HOME lat=%d lon=%d alt=%d\n", points[points.size() - 1].latitude, points[points.size() - 1].longitude, points[points.size() - 1].altitude);
             }
             else if(other_commands[i].type == CommandType::TAKEOFF)
@@ -142,17 +147,27 @@ struct Trajectory
                 points.emplace_back( other_commands[i-1].content.waypoint.latitude
                                    , other_commands[i-1].content.waypoint.longitude
                                    , other_commands[i].content.takeoff.altitude);
+                snprintf(message, 512, "Point %d is TAKEOFF with coords: latitude = %d, logitude = %d, altitude = %d\n", i, points[i].latitude, points[i].longitude, points[i].altitude);
                 //fprintf(stderr, "TAKEOFF lat=%d lon=%d alt=%d\n", points[points.size() - 1].latitude, points[points.size() - 1].longitude, points[points.size() - 1].altitude);
             }
             else if(other_commands[i].type == CommandType::WAYPOINT)
             {
                 points.push_back(other_commands[i].content.waypoint);
+                snprintf(message, 512, "Point %d is WAYPOINT with coords: latitude = %d, logitude = %d, altitude = %d\n", i, points[i].latitude, points[i].longitude, points[i].altitude);
                 //fprintf(stderr, "WAYPOINT lat=%d lon=%d alt=%d\n", points[points.size() - 1].latitude, points[points.size() - 1].longitude, points[points.size() - 1].altitude);
             }
             else if(other_commands[i].type == CommandType::SET_SERVO)
             {
-                continue;
+                snprintf(message, 512, "Point %d is SERVO with number = %d, pwm = %d\n", i, other_commands[i].content.servo.number, other_commands[i].content.servo.pwm);
             }
+            sendLogMessage(message, response, "Fail in sending mission point\n");
+        }
+    }
+    void print_points()
+    {
+        for(uint i = 0; i<points.size(); i++)
+        {
+            fprintf(stderr, "lon - %d lat - %d alt - %d\n", points[i].longitude, points[i].latitude, points[i].altitude);
         }
     }
 };
