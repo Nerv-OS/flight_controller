@@ -157,15 +157,15 @@ private:
 
     bool block_update = 0;
 
-    uint32_t get_prev_waypoint_number (uint32_t command_number);//Возвращает -1, если не получается найти 
+    uint32_t get_prev_waypoint_number (uint32_t command_number);
 
-    double check_altitude_is_correct(const CommandWaypoint& drone_possition, int32_t command_number);//Land и takeoff или до этого takeoff всегда true
+    double check_altitude_is_correct(const CommandWaypoint& drone_possition, int32_t command_number);
 
     bool check_set_servo_is_nearby(const CommandWaypoint& drone_possition);
 
     bool check_speed_is_correct(const CommandWaypoint& drone_possition);
 
-    double check_no_deviation_from_cource(const CommandWaypoint& drone_possition);//Для Land и takeoff всегда true
+    double check_no_deviation_from_cource(const CommandWaypoint& drone_possition);
 
     void update_current_command(const CommandWaypoint& drone_possition);
 
